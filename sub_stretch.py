@@ -51,7 +51,7 @@ with open(args.filename, encoding='cp1251') as f:
             h2, s2 = divmod(s2, 3600)
             m2, s2 = divmod(s2, 60)
             s2, x2 = divmod(s2, 1)
-            print("{h1:02.0f}:{m1:02.0f}:{s1:02.0f},{x1:03.0f} ||--> "
+            print("{h1:02.0f}:{m1:02.0f}:{s1:02.0f},{x1:03.0f} --> "
                     "{h2:02.0f}:{m2:02.0f}:{s2:02.0f},{x2:03.0f}".format(
                 h1=h1, m1=m1, s1=s1, x1=x1*1000, 
                 h2=h2, m2=m2, s2=s2, x2=x2*1000))
