@@ -10,22 +10,23 @@ from utime import sleep_ms
 #NP_LED = 25
 PLAYER_PINS = [ 19, 18, 5, 17 ]
 #PAD_PINS = [ 26, 25, 35, 34, 39, 36, 23, 22 ]
-PAD_PINS = [ 26, 35, 39, 23, 22, 36, 34, 25 ]
+BUTTON_PINS = [ 26, 35, 39, 23, 22, 36, 34, 25 ]
 NP_LED = 27
 LVL = 21
-NUM_PADS = len(PAD_PINS)
+NUM_BUTTONS = len(BUTTON_PINS)
 NUM_PLAYERS = len(PLAYER_PINS)
-COLORS8 = [
-        (255, 0, 0),   # 0 Red
-        (192, 32, 0),  # 1 Orange
-        (128, 80, 0),  # 2 Yellow
-        (0, 255, 0),   # 3 Green
-        (16, 64, 64), # 4 Cyan
-        (0, 0, 255),   # 5 Blue
-        (64, 0, 192),   # 6 Violet
-        (128, 0, 32),   # 7 Magenta
-        ]
-COLORS4 = [ COLORS8[i] for i in (0, 2, 3, 5) ]
+RED      = (255,   0,   0)
+ORANGE   = (192,  32,   0)
+YELLOW   = (128,  80,   0)
+GREEN    = (  0, 255,   0)
+CYAN     = ( 16,  64,  64)
+BLUE     = (  0,   0, 255)
+PINK     = ( 64,   0, 192)
+VIOLET   = (128,   0,  32)
+WHITE    = (128, 128, 128)
+COLORS8 = [ RED, ORANGE, YELLOW, GREEN, CYAN, BLUE, PINK, VIOLET ]
+COLORS4 = [ RED, GREEN, YELLOW, PINK ]
+WHITE
 
 class Player:
     def __init__(self, pin, color=None, result=0):
@@ -33,104 +34,82 @@ class Player:
         self.result = result
         self.color = color
 
-class Pad:
-    def __init__(self, pin, led_idx):
+class Button:
+    def __init__(self, pin, led_id):
         self.pin = Pin(pin, Pin.IN)
-        self.pressed = {}
-        self.led_idx = led_idx
+        self.led_id = led_id
+        self.pressed = None
 
-    def init_plyers(self, players):
-        for p in players:
-            self.pressed[p] = False
-
-    def get_pressed(self, player):
+    def get_pressed(self):
         # Call this after read_pads()
-        return self.pressed[player]
+        return self.pressed
+
+    def get_led(self):
+        global leds
+        return leds[self.led_id]
+
+    def set_led(self, color):
+        global leds
+        leds[self.led_id] = color
 
 
-
-players = [ Player(x) for x in PLAYER_PINS ]
-pads = [ Pad(x, i) for x,i in zip(PAD_PINS, range(NUM_PADS)) ]
-leds = NeoPixel(Pin(NP_LED, Pin.OUT), NUM_PADS)
+players = [ Player(x, COLORS4[i]) for i,x in enumerate(PLAYER_PINS) ]
+buttons = [ Button(x, i) for i,x in enumerate(BUTTON_PINS) ]
+leds = NeoPixel(Pin(NP_LED, Pin.OUT), NUM_BUTTONS)
 level = Pin(LVL, Pin.OUT, value=1)
 
 def clear_leds():
-    for i in range(NUM_PADS):
-        leds[i] = (0, 0, 0)
+    global leds
+    for b in buttons:
+        b.set_led((0,0,0))
     leds.write()
 
 def rainbow():
-    for i in range(NUM_PADS):
-        leds[i] = COLORS8[i]
+    global leds
+    for i,b in enumerate(buttons):
+        b.set_led(COLORS8[i])
     leds.write()
 
-def read_pads():
+def read_buttons():
     for l in players:
         l.pin.value(1)
-    for pad in pads:
-        if pad.pin.value() == 0:
-            raise ValueError("%s is down!" % pad)
-    for l in players:
-        l.pin.value(0)
-        for pad in pads:
-            pad.pressed[l] = (pad.pin.value() == 0)
-        l.pin.value(1)
-
-def read_pad1(pad):
-    pressed = { x: False for x in players }
-    for l in players:
-        l.pin.value(1)
-    if pad.pin.value() == 0:
-        raise ValueError("%s is down!" % pad)
+    for b in buttons:
+        if b.pin.value() == 0:
+            print("Button {} is down!".format(b))
+        b.pressed = None
     for l in players:
         l.pin.value(0)
-        pressed[l] = (pad.pin.value() == 0)
+        for b in buttons:
+            if b.pin.value() == 0:
+                b.pressed = l
         l.pin.value(1)
-    return pressed
 
-def show_ok(res):
-    clear_leds()
-    sleep_ms(100)
-    for i in range(NUM_PLAYERS):
-        if res[i]:
-            for j in range(NUM_PADS):
-                leds[j] = COLORS[i]
-            leds.write()
-        sleep_ms(2000)
-    clear_leds()
+def select(choices=NUM_BUTTONS):
+    while True:
+        read_buttons()
+        for i in range(choices):
+            b = buttons[i]
+            if b.pressed:
+                return i
 
-def show_error(res):
-    for k in range(5):
+def menu(choices):
+    clear_leds()
+    for b in buttons:
+        b.set_led(WHITE)
+        leds.write()
+        sleep_ms(125)
+    clear_leds()
+    for i in range(choices):
+        b = buttons[i]
+        b.set_led(COLORS8[i])
+    leds.write()
+    res = select(choices)
+    for i in range(3):
+        buttons[res].set_led(COLORS8[res])
+        leds.write()
+        sleep_ms(250)
         clear_leds()
-        sleep_ms(500)
-        if res is None:
-            for j in range(NUM_PADS):
-                leds[j] = (255, 255, 255)
-            leds.write()
-            sleep_ms(500)
-        else:
-            for i in range(NUM_PLAYERS):
-                if res[i]:
-                    for j in range(NUM_PADS):
-                        leds[j] = COLORS[i]
-                    leds.write()
-                    sleep_ms(500)
-
-    clear_leds()
-
-
-def get_players(pad, res):
-    for p in players:
-        p.off()
-    if pad.value():
-        raise ValueError
-    for i in range(len(players)):
-        players[i].on()
-        res[i] = pad.value()
-        players[i].off()
-        if pad.value():
-            raise ValueError
+        sleep_ms(250)
     return res
-
 
 clear_leds()
