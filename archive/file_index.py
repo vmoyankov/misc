@@ -3,12 +3,34 @@
 
 
 import argparse
+import collections
 import csv
-import glob
+import hashlib
 import os
+import shutil
 import subprocess
 import sys
 import time
+
+index = set()
+
+def load_index(path):
+    """
+    Load an index file. This data is later used to check if the file
+    has changed and needs to be hashed. Stores only the minimum information
+    needed to do the check.
+
+    index file format:
+    sha1,mtime,size,path
+    """
+
+    global index
+
+    with open(path, newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            v = ':'.join((row[3],row[1],row[2]))
+            index.add(hashlib.sha1(v.encode('utf-8')).digest())
 
 
 def index_file(csv_file, de):
@@ -21,7 +43,10 @@ def index_file(csv_file, de):
     csv_file.writerow((hash.decode('ascii'), int(stat.st_mtime), stat.st_size, de.path))
 
 
-def index_dir(args, csv_file, path, last_indexed):
+
+def index_dir(args, csv_file, path):
+
+    global index
 
     if args.v:
         print('D {}'.format(path))
@@ -35,12 +60,20 @@ def index_dir(args, csv_file, path, last_indexed):
                     continue
                 if not de.is_file():
                     continue
-                if last_indexed is None:
-                    files.append(de)
+                # add file for hasing only if this verion of the file is
+                # not in the index
+                f_stat = de.stat()
+                mtime = int(f_stat.st_mtime)
+                size = int(f_stat.st_size)
+                v = '{}:{:d}:{:d}'.format(de.path, mtime, size)
+                hv = hashlib.sha1(v.encode('utf-8')).digest()
+                if hv in index:
+                    if args.v:
+                        print('- {} {} {}'.format(de.path, mtime, size))
                 else:
-                    mtime = de.stat().st_mtime
-                    if mtime > last_indexed:
-                        files.append(de)
+                    if args.v:
+                        print('+ {} {} {}'.format(de.path, mtime, size))
+                    files.append(de)
     except PermissionError as e:
         print(e, file=sys.stderr)
         return
@@ -49,24 +82,7 @@ def index_dir(args, csv_file, path, last_indexed):
             print('F {}'.format(de.path))
         index_file(csv_file, de)
     for path in sub_dirs:
-        index_dir(args, csv_file, path, last_indexed)
-
-
-def get_latest_index(args):
-    index_files = glob.glob(args.index + '_' + '[0-9]'*8 + '-' + '[0-9]'*6)
-    if len(index_files) == 0:
-        return None
-    for filename in sorted(index_files, reverse=True):
-        try:
-            with open(filename) as f:
-                line = f.readline()
-                last_time = int(line)
-                if last_time > 0:
-                    return last_time
-        except Exception as e:
-            print(e, file=sys.stderr)
-            continue
-    return None
+        index_dir(args, csv_file, path)
 
 
 def main():
@@ -74,30 +90,45 @@ def main():
     parser = argparse.ArgumentParser(description='Create index of files')
     parser.add_argument('dirs', nargs='+')
     parser.add_argument('-i', '--index', default='file_index',
-            help='index file to be created. A suffix with the current time '
-            'is added. Default to file_index')
-    parser.add_argument('-n', '--newer', action='store_true',
-            help='index only files changed since last index')
+            help='Index file to be created or updated. A backup file is '
+            'created. Default to file_index')
     parser.add_argument('-v', action='count', default=0,
             help='verbose')
 
     args = parser.parse_args()
+
     now = int(time.time()) - 1
     localtime = time.localtime(now)
-    index_filename = "{}_{}".format(args.index, 
+    index_filename = "{}.tmp-{}".format(args.index, 
+            time.strftime('%Y%m%d-%H%M%S', localtime))
+    backup_filename = "{}.bak-{}".format(args.index,
             time.strftime('%Y%m%d-%H%M%S', localtime))
 
-    if args.newer:
-        latest_index = get_latest_index(args)
-    else:
-        latest_index = None
-    if latest_index is not None:
-        print("Last indexed at " + time.strftime("%Y%m%d-%H:%M:%S", time.localtime(latest_index)))
-    with open(index_filename, 'w') as index_file:
-        print(now, file=index_file)
+    if os.path.isfile(args.index):
+        shutil.copyfile(args.index, index_filename)
+        load_index(index_filename)
+
+
+    with open(index_filename, 'a') as index_file:
         csv_file = csv.writer(index_file)
         for path in args.dirs:
-            index_dir(args, csv_file, path, latest_index)
+            index_dir(args, csv_file, path)
+
+    try:
+        os.rename(args.index, backup_filename)
+    except FileNotFoundError:
+        pass
+    os.rename(index_filename, args.index)
+
+    if args.v:
+        print("""
+Flags:
+-  File is found in the index and skipped
++  File is not found in the index and scheduled for hashing
+D  Directory is scaned.
+F  File is hashed
+""")
+
 
 
 if __name__ == '__main__':
