@@ -14,6 +14,18 @@ import time
 
 index = set()
 
+class Counter:
+    pass
+
+counter = Counter()
+counter.dirs_scan = 0
+counter.dirs_err = 0
+counter.files_scan = 0
+counter.files_hash = 0
+counter.files_err = 0
+counter.hash_size = 0
+
+
 def load_index(path):
     """
     Load an index file. This data is later used to check if the file
@@ -34,20 +46,27 @@ def load_index(path):
 
 
 def index_file(csv_file, de):
+    global counter
+
     try:
         out = subprocess.check_output(['sha1sum', '-b', de.path])
     except subprocess.CalledProcessError as e:
+        counter.files_err += 1
         return
     hash, _ = out.split(maxsplit=1)
     stat = de.stat()
     csv_file.writerow((hash.decode('ascii'), int(stat.st_mtime), stat.st_size, de.path))
+    counter.files_hash += 1
+    counter.hash_size += stat.st_size
 
 
 
 def index_dir(args, csv_file, path):
 
     global index
+    global counter
 
+    counter.dirs_scan += 1
     if args.v:
         print('D {}'.format(path))
     sub_dirs = []
@@ -62,6 +81,7 @@ def index_dir(args, csv_file, path):
                     continue
                 # add file for hasing only if this verion of the file is
                 # not in the index
+                counter.files_scan += 1
                 f_stat = de.stat()
                 mtime = int(f_stat.st_mtime)
                 size = int(f_stat.st_size)
@@ -76,6 +96,7 @@ def index_dir(args, csv_file, path):
                     files.append(de)
     except PermissionError as e:
         print(e, file=sys.stderr)
+        counter.dirs_err += 1
         return
     for de in files:
         if args.v:
@@ -86,6 +107,9 @@ def index_dir(args, csv_file, path):
 
 
 def main():
+
+    global index
+    global counter
 
     parser = argparse.ArgumentParser(description='Create index of files')
     parser.add_argument('dirs', nargs='+')
@@ -128,6 +152,21 @@ Flags:
 D  Directory is scaned.
 F  File is hashed
 """)
+    print("""Counters:
+    Input index length:  {:12d}
+    Scanned dirs:        {:12d}
+    Scanned files:       {:12d}
+    Hashed files:        {:12d}
+    Hashed MB:           {:12.0f}
+    Error reading dirs:  {:12d}
+    Error reading files: {:12d}""".format(
+        len(index),
+        counter.dirs_scan,
+        counter.files_scan,
+        counter.files_hash,
+        counter.hash_size / 1024**2,
+        counter.dirs_err,
+        counter.files_err))
 
 
 
