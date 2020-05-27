@@ -1,0 +1,50 @@
+#!/bin/bash
+
+
+print_progress () {
+	while : ; do
+		sleep 1
+		fname=$(readlink -n /proc/$1/fd/4)
+		fname=${fname##*/}
+		x=0x${fname:0:4}
+		LC_ALL=C
+		p=$(bc <<< "scale=3; $((x)) * 100 / 256 / 256")
+		printf '   Processing %s %05.2f%% %b' "$fname" "$p" '\r'
+	done
+}
+
+
+checksum=$(mktemp)
+trap 'rm $checksum; kill $(jobs -p)' EXIT
+#trap 'kill $(jobs -p)' EXIT
+
+echo Generating checksum file $checksum
+
+find . -type f -printf '%f *%p\n' | sort > $checksum
+
+if [ "$1" == "--start-with" -a -n "$2" ] ; then
+	first=$2
+	shift 2
+	echo "Skipping everything before ^${first}"
+	sed -i -e "/^${first}/,\$!d" $checksum
+fi
+
+echo "Checking $(wc -l < $checksum) files"
+
+sha1sum -c $checksum --quiet &
+pid=$!
+print_progress $pid &
+wait $pid
+
+if [ $? -ne 0 ] ; then
+    echo
+    echo '*********************************************************'
+    echo '       WARNING !!! '
+    echo '*********************************************************'
+    echo
+    echo "!!! Errors detected !!!"
+    echo "Check the files listed above!"
+else
+    echo
+    echo "No errors detected"
+fi
