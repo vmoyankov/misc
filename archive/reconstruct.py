@@ -8,10 +8,12 @@ import sys
 import fnmatch
 import os.path
 from pathlib import Path
+import re
 
-
+# globals
 args = None
 index = {}
+translate = []
 
 
 def match_filter(path):
@@ -25,9 +27,11 @@ def match_filter(path):
 
     return False
 
+
 def load_index(index_filename):
 
     global index
+    global translate
 
     with open(index_filename) as index_file:
         reader = csv.reader(index_file)
@@ -35,9 +39,26 @@ def load_index(index_filename):
             hash, mtime, size, path = row[:]
             if not match_filter(path):
                 continue
+
+            # translate path
+            for search, replace in translate:
+                path = re.sub(search,replace, path)
+
             if hash not in index:
                 index[hash] = []
             index[hash].append((path, mtime, size))
+
+def load_translate():
+    global args
+    global translate
+
+    if not args.translate:
+        return
+
+    for search, replace in args.translate:
+        expr = re.compile(search)
+        translate.append((expr, replace))
+
 
 def make_link(h):
 
@@ -69,15 +90,19 @@ def main():
     parser.add_argument('--root', '-r', required=True,
             help='This is the root of the created tree. It will not delete'
             ' or overwrite existing content.')
-    parser.add_argument('--filter', '-f', nargs='*',
+    parser.add_argument('--filter', '-f', action='append',
             help='If provided, only paths maching any of the filters will be'
             ' created. Shell path-expansion format.')
     parser.add_argument('index', nargs='*', 
             help='index files')
     parser.add_argument('-v', action='count', default=0,
             help='verbose')
+    parser.add_argument('--translate', '-t', nargs=2, action='append',
+            help='Translate prefixes. format is <pattern> <replace>, where'
+            ' pattern and replace are regex and replace string as defined in re.sub')
 
     args = parser.parse_args()
+    load_translate()
 
     for idx_file in args.index:
         load_index(idx_file)
