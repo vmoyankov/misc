@@ -8,14 +8,14 @@
 # with borgmatic
 
 
-BORG_REPO=backup@vm-borg-server:dell
+BORG_REPO=backup@vm-borg-server.sof-vm.storpool.local:dell
 last_backup=/var/run/borg-backup/last-backup
 backup_interval=7170 # min interval in seconds between backups
 
 
 # check if there was a backup made soon
 
-if [ ! -f $last_backup ] ; then
+if [[ ! -f $last_backup ]] ; then
 	if [ ! -d $(dirname $last_backup) ] ; then
 		if ! mkdir -p $(dirname $last_backup) ; then
 			logger -t backup -p local0.error "Can not create $(dirname $last_backup)"
@@ -36,7 +36,7 @@ fi
 
 remote_host=${BORG_REPO%:*}
 server_version=$(ssh -o ConnectTimeout=3 $remote_host info --version 2>/dev/null)
-if [ $? -eq 0 && "$server_version" =~ "^borg 1" ] ; then
+if [[ $? -eq 0 && "$server_version" =~ '^borg 1' ]] ; then
 	logger -t backup -p local0.info "Backup server is not accessible"
 	exit 0
 fi
@@ -48,7 +48,7 @@ borgmatic
 
 ret=$?
 logger -t backup -p local0.info "Backup ended with $ret at $(date)"
-if [ $ret == 0 ] ; then
+if [[ $ret -eq 0 ]] ; then
 	date +%s > $last_backup
 fi
 
