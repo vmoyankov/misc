@@ -6,14 +6,14 @@ from neopixel import NeoPixel
 from utime import sleep_ms
 import random
 
-LED_PIN        = 27
+LED_PIN        = 13
 LED_COUNT      = 25      # Number of LED pixels.
 
 
 # Define functions which animate LEDs in various ways.
 def colorWipe(strip, color, wait_ms=50):
     """Wipe color across display a pixel at a time."""
-    for i in range(len(strip)):
+    for i in range(strip.n):
         strip[i] = color
         strip.write()
         sleep_ms(wait_ms)
@@ -22,11 +22,11 @@ def theaterChase(strip, color, wait_ms=50, iterations=10):
     """Movie theater light style chaser animation."""
     for j in range(iterations):
         for q in range(3):
-            for i in range(0, len(strip), 3):
+            for i in range(0, strip.n, 3):
                 strip[i + q] = color
             strip.write()
             sleep_ms(wait_ms)
-            for i in range(0, len(strip), 3):
+            for i in range(0, strip.n, 3):
                 strip[i + q] = (0, 0, 0)
 
 def wheel(pos):
@@ -43,7 +43,7 @@ def wheel(pos):
 def rainbow(strip, wait_ms=20, iterations=1):
     """Draw rainbow that fades across all pixels at once."""
     for j in range(256*iterations):
-        for i in range(len(strip)):
+        for i in range(strip.n):
             strip[i] = wheel((i+j) & 255)
         strip.write()
         sleep_ms(wait_ms)
@@ -51,21 +51,21 @@ def rainbow(strip, wait_ms=20, iterations=1):
 def rainbowCycle(strip, wait_ms=20, iterations=5):
     """Draw rainbow that uniformly distributes itself across all pixels."""
     for j in range(256*iterations):
-        for i in range(len(strip)):
-            strip[i] = wheel(int(i * 256 / len(strip) + j) & 255)
+        for i in range(strip.n):
+            strip[i] = wheel(int(i * 256 / strip.n + j) & 255)
         strip.write()
         sleep_ms(wait_ms)
 
 def theaterChaseRainbow(strip, wait_ms=50):
     """Rainbow movie theater light style chaser animation."""
-    for j in range(256):
+    for j in range(0, 3*80, 80):
         for q in range(3):
-            for i in range(0, len(strip), 3):
-                strip[i+j] = wheel((i+j) % 255)
+            for i in range(q, strip.n, 3):
+                strip[i] = wheel((i*5+j) % 255)
             strip.write()
             sleep_ms(wait_ms)
-            for i in range(0, len(strip), 3):
-                strip[i+q] = (0,0,0)
+            for i in range(q, strip.n, 3):
+                strip[i] = (0,0,0)
 
 colors = [
     (255, 40, 192), # pink
@@ -86,25 +86,22 @@ strip = NeoPixel(Pin(LED_PIN, Pin.OUT), LED_COUNT)
 def main():
     global colors, strip
 
-    try:
+    while True:
+        print('Color wipe animations.')
+        for n in range(3):
+            for c in colors:
+                #colorWipe(strip, c)
+                pass
+        # print ('Theater chase animations.')
+        # for n in range(0):
+        #     theaterChase(strip, random.choice(colors))
+        print ('Rainbow animations.')
+        rainbow(strip, 20, 5)
+        print ('RainbowCycle.')
+        rainbowCycle(strip, 5, 20)
+        print ('RainbowChase.')
+        theaterChaseRainbow(strip, wait_ms=200)
 
-        while True:
-            print('Color wipe animations.')
-            for n in range(3):
-                for c in colors:
-                    colorWipe(strip, c)
-            print ('Theater chase animations.')
-            for n in range(0):
-                theaterChase(strip, random.choice(colors))
-            print ('Rainbow animations.')
-            rainbow(strip, 20, 5)
-            print ('RainbowCycle.')
-            rainbowCycle(strip, 5, 20)
-            print ('RainbowChase.')
-            theaterChaseRainbow(strip)
-
-    except Exception as e:
-        print(e)
 
 if __name__ == '__main__':
     main()
