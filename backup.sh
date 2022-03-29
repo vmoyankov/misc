@@ -13,6 +13,12 @@ last_backup=/var/run/borg-backup/last-backup
 backup_interval=7170 # min interval in seconds between backups
 
 
+# skip backup if over mobile
+if iwconfig 2>/dev/null | fgrep -q 'ESSID:"A88"' ; then 
+	logger -t backup -p local0.info "Mobile network is in use, Skip backup"
+	exit 0
+fi
+
 # check if there was a backup made soon
 
 if [[ ! -f $last_backup ]] ; then
