@@ -75,7 +75,7 @@ def main() -> None:  # noqa: C901,PLR0912,PLR0915  # Split it up... later
                     if params and s_key not in params:
                         continue
                     delta = s_value - session[s_key]
-                    print("{}: {:d}".format(s_key, delta), end=delimiter)
+                    print(f"{s_key}: {delta:d}", end=delimiter)
                 sessions[sid] = stats
                 print()
 

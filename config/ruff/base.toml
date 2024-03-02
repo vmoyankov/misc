@@ -31,7 +31,6 @@ ignore = [
   "PLW1510",
   "SIM105",
   "SIM108",
-  "UP032",
 ]
 
 [lint.isort]
