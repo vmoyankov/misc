@@ -30,15 +30,9 @@ def main() -> None:  # noqa: C901,PLR0912  # Split it up... later
     parser.add_argument("-v", "--vertical", action="store_true")
     args = parser.parse_args()
 
-    if args.vertical:
-        delimiter = "\n"
-    else:
-        delimiter = "\t"
+    delimiter = "\n" if args.vertical else "\t"
 
-    if args.params:
-        params = args.params.split(",")
-    else:
-        params = None
+    params = args.params.split(",") if args.params else None
 
     sessions: dict[str, dict[str, int]] = {}
     while True:  # noqa: PLR1702  # Split it up... later
