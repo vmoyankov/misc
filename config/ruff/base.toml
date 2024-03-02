@@ -26,9 +26,6 @@ ignore = [
 
   # The /x regex modifier is common enough in many languages
   "FURB167",
-
-  # FIXME: fix or override these ASAP
-  "PLW1510",
 ]
 
 [lint.isort]

@@ -24,12 +24,7 @@ from . import util
 
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Callable
-    from typing import IO, Final
-
-
-TSTAT_OUTPUT_SINGLE_1: Final = "192.168.1.184:59738-185.117.82.66:22"
-"""The first line of output in the "single TCP session" test."""
+    from typing import Final
 
 
 def test_single_no_output() -> None:
@@ -46,65 +41,11 @@ def test_single_no_output() -> None:
             assert line == "\n"
 
 
-def assert_initial(stream: IO[str], session: str) -> None:
-    """Make sure we get the initial line with the session prefix."""
-    print("Waiting for the initial set of stats")
-    assert stream.readline() == f"{session}\t\n"
-
-    assert stream.readline() == "\n"
-
-
-def assert_no_change(
-    stream: IO[str],
-    session: str,
-    *,
-    update: Callable[[], None] | None = None,
-) -> None:
-    """Make sure we get another set of data with no changes in the counters."""
-    print("Waiting for another set of stats, no change")
-    line = stream.readline()
-    empty, prefix, contents = line.partition(session)
-    assert not empty
-    assert prefix == session
-    assert contents.startswith("\t")
-    assert "bytes_sent: 0\t" in contents
-    assert "bytes_received: 0\t" in contents
-
-    # Perform the update before we get the newline, it may be too late
-    if update is not None:
-        update()
-
-    assert stream.readline() == "\n"
-
-
-def assert_small_change(
-    stream: IO[str],
-    session: str,
-    *,
-    update: Callable[[], None] | None = None,
-) -> None:
-    """Make sure we get another set of data with only a small change in the counters."""
-    print("Waiting for another set of stats, a small change")
-    line = stream.readline()
-    empty, prefix, contents = line.partition(session)
-    assert not empty
-    assert prefix == session
-    assert contents.startswith("\t")
-    assert "bytes_sent: 1\t" in contents
-    assert "bytes_received: 10\t" in contents
-
-    # Perform the update before we get the newline, it may be too late
-    if update is not None:
-        update()
-
-    assert stream.readline() == "\n"
-
-
 @pytest.mark.parametrize("suffix", ["single", "close-first", "close-last"])
 def test_single_session_no_delta(suffix: str) -> None:
     """A single `ss` session, no changes between the `ss` invocations."""
     print()
-    session: Final = TSTAT_OUTPUT_SINGLE_1
+    session: Final = util.TSTAT_OUTPUT_SINGLE_1
     with util.setup_ss_bin() as ctx:
         # Prepare the "single established session" output for the mock `ss` tool
         shutil.copy2(util.TEST_DATA_DIR / f"ss-output-{suffix}-1.txt", ctx.ss_output)
@@ -113,18 +54,18 @@ def test_single_session_no_delta(suffix: str) -> None:
             assert proc.stdout is not None
 
             # First time around: no counters
-            assert_initial(proc.stdout, session)
+            util.assert_initial(proc.stdout, session)
 
             # Second, third, and fourth times around: no deltas
             for _ in range(3):
-                assert_no_change(proc.stdout, session)
+                util.assert_no_change(proc.stdout, session)
 
 
 @pytest.mark.parametrize("suffix", ["single", "close-first", "close-last"])
 def test_single_session_small_delta(suffix: str) -> None:
     """A single `ss` session, a small change in the counters."""
     print()
-    session: Final = TSTAT_OUTPUT_SINGLE_1
+    session: Final = util.TSTAT_OUTPUT_SINGLE_1
     with util.setup_ss_bin() as ctx:
         # Prepare the "single established session" output for the mock `ss` tool
         shutil.copy2(util.TEST_DATA_DIR / f"ss-output-{suffix}-1.txt", ctx.ss_output)
@@ -133,10 +74,10 @@ def test_single_session_small_delta(suffix: str) -> None:
             assert proc.stdout is not None
 
             # First time around: no counters
-            assert_initial(proc.stdout, session)
+            util.assert_initial(proc.stdout, session)
 
             # No change at first, but switch the file before the timer expires
-            assert_no_change(
+            util.assert_no_change(
                 proc.stdout,
                 session,
                 update=lambda: shutil.copy2(
@@ -145,7 +86,7 @@ def test_single_session_small_delta(suffix: str) -> None:
                 ),
             )
 
-            assert_small_change(proc.stdout, session)
+            util.assert_small_change(proc.stdout, session)
 
             # And then no change on the next invocation, right?
-            assert_no_change(proc.stdout, session)
+            util.assert_no_change(proc.stdout, session)

@@ -29,8 +29,8 @@ import utf8_locale
 
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Iterator
-    from typing import Final
+    from collections.abc import Callable, Iterator
+    from typing import IO, Final
 
 
 TOP_DIR: Final = pathlib.Path(__file__).absolute().parent.parent.parent.parent
@@ -73,6 +73,10 @@ fi
 cat -- '{ss_output}'
 """
 """Our mock-up socket status tool."""
+
+
+TSTAT_OUTPUT_SINGLE_1: Final = "192.168.1.184:59738-185.117.82.66:22"
+"""The first line of output in the "single TCP session" test."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -139,7 +143,11 @@ def tcp_stat_path() -> pathlib.Path:
 
 
 @contextlib.contextmanager
-def run_tcp_stat(*, env: dict[str, str]) -> Iterator[subprocess.Popen[str]]:
+def run_tcp_stat(
+    *,
+    env: dict[str, str],
+    check_exit_code: bool = False,
+) -> Iterator[subprocess.Popen[str]]:
     """Wrap the `tcp_stat` invocation in our start/terminate/kill/check harness."""
     with subprocess.Popen(
         [sys.executable, "-B", "-u", tcp_stat_path()],  # noqa: S603
@@ -162,6 +170,61 @@ def run_tcp_stat(*, env: dict[str, str]) -> Iterator[subprocess.Popen[str]]:
             # ...but don't take too long
             proc.kill()
 
-        # Make sure we told the program to stop
         res: Final = proc.wait()
-        assert res == -signal.SIGTERM, repr(res)
+        if check_exit_code:
+            # Make sure we told the program to stop
+            assert res == -signal.SIGTERM, repr(res)
+
+
+def assert_initial(stream: IO[str], session: str) -> None:
+    """Make sure we get the initial line with the session prefix."""
+    print("Waiting for the initial set of stats")
+    assert stream.readline() == f"{session}\t\n"
+
+    assert stream.readline() == "\n"
+
+
+def assert_no_change(
+    stream: IO[str],
+    session: str,
+    *,
+    update: Callable[[], None] | None = None,
+) -> None:
+    """Make sure we get another set of data with no changes in the counters."""
+    print("Waiting for another set of stats, no change")
+    line = stream.readline()
+    empty, prefix, contents = line.partition(session)
+    assert not empty
+    assert prefix == session
+    assert contents.startswith("\t")
+    assert "bytes_sent: 0\t" in contents
+    assert "bytes_received: 0\t" in contents
+
+    # Perform the update before we get the newline, it may be too late
+    if update is not None:
+        update()
+
+    assert stream.readline() == "\n"
+
+
+def assert_small_change(
+    stream: IO[str],
+    session: str,
+    *,
+    update: Callable[[], None] | None = None,
+) -> None:
+    """Make sure we get another set of data with only a small change in the counters."""
+    print("Waiting for another set of stats, a small change")
+    line = stream.readline()
+    empty, prefix, contents = line.partition(session)
+    assert not empty
+    assert prefix == session
+    assert contents.startswith("\t")
+    assert "bytes_sent: 1\t" in contents
+    assert "bytes_received: 10\t" in contents
+
+    # Perform the update before we get the newline, it may be too late
+    if update is not None:
+        update()
+
+    assert stream.readline() == "\n"

@@ -37,7 +37,7 @@ def main() -> None:  # noqa: C901,PLR0912  # Split it up... later
     sessions: dict[str, dict[str, int]] = {}
     while True:  # noqa: PLR1702  # Split it up... later
         session = None
-        res = subprocess.run(["ss", "-tni"], stdout=subprocess.PIPE, encoding="utf-8").stdout  # noqa: S603,S607
+        res = subprocess.check_output(["ss", "-tni"], encoding="utf-8")  # noqa: S603,S607
         ignore_data = True
         for line in res.splitlines():
             fields = line.split()
