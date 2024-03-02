@@ -44,19 +44,23 @@ def main():
     while True:
         session = None
         res = subprocess.run(['ss', '-tni'], stdout=subprocess.PIPE, encoding='utf-8').stdout
+        ignore_data = True
         for line in res.splitlines():
-            if 'ESTAB' in line:
-                sid = '-'.join(line.split()[3:5])
-                if sid not in sessions:
-                    sessions[sid]={}
-                session = sessions[sid]
-                continue
-
-            if 'bytes_sent' in line:
+            fields = line.split()
+            if fields and line[0][0].isalpha():
+                if fields[0] == 'ESTAB':
+                    sid = '-'.join(fields[3:5])
+                    if sid not in sessions:
+                        sessions[sid]={}
+                    session = sessions[sid]
+                    ignore_data = False
+                else:
+                    ignore_data = True
+            elif not ignore_data and any(field.startswith('bytes_sent:') for field in fields):
                 if args.filter and args.filter not in sid:
                     continue
                 stats={}
-                for word in line.split():
+                for word in fields[1:]:
                     if ':' in word:
                         k,v = word.split(":", 1)
                         try:
@@ -72,7 +76,7 @@ def main():
                     d = v - session[k]
                     print("{}: {:d}".format(k,d), end=delimiter)
                 sessions[sid]=stats
-            print()
+                print()
 
         time.sleep(1)
         print()

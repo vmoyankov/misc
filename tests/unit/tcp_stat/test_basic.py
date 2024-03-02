@@ -18,10 +18,13 @@ from __future__ import annotations
 import shutil
 import typing
 
+import pytest
+
 from . import util
 
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Callable
     from typing import IO, Final
 
 
@@ -51,9 +54,14 @@ def assert_initial(stream: IO[str], session: str) -> None:
     assert stream.readline() == "\n"
 
 
-def assert_no_change(stream: IO[str], session: str) -> None:
+def assert_no_change(
+    stream: IO[str],
+    session: str,
+    *,
+    update: Callable[[], None] | None = None,
+) -> None:
     """Make sure we get another set of data with no changes in the counters."""
-    print("Waiting for another set of stats")
+    print("Waiting for another set of stats, no change")
     line = stream.readline()
     empty, prefix, contents = line.partition(session)
     assert not empty
@@ -62,22 +70,82 @@ def assert_no_change(stream: IO[str], session: str) -> None:
     assert "bytes_sent: 0\t" in contents
     assert "bytes_received: 0\t" in contents
 
+    # Perform the update before we get the newline, it may be too late
+    if update is not None:
+        update()
+
     assert stream.readline() == "\n"
 
 
-def test_single_session_no_delta() -> None:
+def assert_small_change(
+    stream: IO[str],
+    session: str,
+    *,
+    update: Callable[[], None] | None = None,
+) -> None:
+    """Make sure we get another set of data with only a small change in the counters."""
+    print("Waiting for another set of stats, a small change")
+    line = stream.readline()
+    empty, prefix, contents = line.partition(session)
+    assert not empty
+    assert prefix == session
+    assert contents.startswith("\t")
+    assert "bytes_sent: 1\t" in contents
+    assert "bytes_received: 10\t" in contents
+
+    # Perform the update before we get the newline, it may be too late
+    if update is not None:
+        update()
+
+    assert stream.readline() == "\n"
+
+
+@pytest.mark.parametrize("suffix", ["single", "close-first", "close-last"])
+def test_single_session_no_delta(suffix: str) -> None:
     """A single `ss` session, no changes between the `ss` invocations."""
     print()
+    session: Final = TSTAT_OUTPUT_SINGLE_1
     with util.setup_ss_bin() as ctx:
         # Prepare the "single established session" output for the mock `ss` tool
-        shutil.copy2(util.TEST_DATA_DIR / "ss-output-single-1.txt", ctx.ss_output)
+        shutil.copy2(util.TEST_DATA_DIR / f"ss-output-{suffix}-1.txt", ctx.ss_output)
 
         with util.run_tcp_stat(env=ctx.env) as proc:
             assert proc.stdout is not None
 
             # First time around: no counters
-            assert_initial(proc.stdout, TSTAT_OUTPUT_SINGLE_1)
+            assert_initial(proc.stdout, session)
 
             # Second, third, and fourth times around: no deltas
             for _ in range(3):
-                assert_no_change(proc.stdout, TSTAT_OUTPUT_SINGLE_1)
+                assert_no_change(proc.stdout, session)
+
+
+@pytest.mark.parametrize("suffix", ["single", "close-first", "close-last"])
+def test_single_session_small_delta(suffix: str) -> None:
+    """A single `ss` session, a small change in the counters."""
+    print()
+    session: Final = TSTAT_OUTPUT_SINGLE_1
+    with util.setup_ss_bin() as ctx:
+        # Prepare the "single established session" output for the mock `ss` tool
+        shutil.copy2(util.TEST_DATA_DIR / f"ss-output-{suffix}-1.txt", ctx.ss_output)
+
+        with util.run_tcp_stat(env=ctx.env) as proc:
+            assert proc.stdout is not None
+
+            # First time around: no counters
+            assert_initial(proc.stdout, session)
+
+            # No change at first, but switch the file before the timer expires
+            assert_no_change(
+                proc.stdout,
+                session,
+                update=lambda: shutil.copy2(
+                    util.TEST_DATA_DIR / f"ss-output-{suffix}-2.txt",
+                    ctx.ss_output,
+                ),
+            )
+
+            assert_small_change(proc.stdout, session)
+
+            # And then no change on the next invocation, right?
+            assert_no_change(proc.stdout, session)
