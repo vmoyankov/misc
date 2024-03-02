@@ -14,12 +14,14 @@
 #    limitations under the License.
 """Display the deltas in the output of the `ss` sockstat tool second by second."""
 
+from __future__ import annotations
+
 import argparse
 import subprocess
 import time
 
 
-def main():
+def main() -> None:
     """Parse command-line arguments, run `ss` repeatedly, process its output."""
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--filter", help="Filter sessions by address:port")
@@ -37,7 +39,7 @@ def main():
     else:
         params = None
 
-    sessions = {}
+    sessions: dict[str, dict[str, int]] = {}
     while True:
         session = None
         res = subprocess.run(["ss", "-tni"], stdout=subprocess.PIPE, encoding="utf-8").stdout
@@ -54,24 +56,26 @@ def main():
                 else:
                     ignore_data = True
             elif not ignore_data and any(field.startswith("bytes_sent:") for field in fields):
+                if session is None:
+                    raise RuntimeError(repr((sessions, ignore_data, line)))
                 if args.filter and args.filter not in sid:
                     continue
                 stats = {}
                 for word in fields[1:]:
                     if ":" in word:
-                        k, v = word.split(":", 1)
+                        f_key, f_value = word.split(":", 1)
                         try:
-                            stats[k] = int(v)
+                            stats[f_key] = int(f_value)
                         except ValueError:
                             pass
                 print(sid, end=delimiter)
-                for k, v in stats.items():
-                    if k not in session:
+                for s_key, s_value in stats.items():
+                    if s_key not in session:
                         continue
-                    if params and k not in params:
+                    if params and s_key not in params:
                         continue
-                    d = v - session[k]
-                    print("{}: {:d}".format(k, d), end=delimiter)
+                    delta = s_value - session[s_key]
+                    print("{}: {:d}".format(s_key, delta), end=delimiter)
                 sessions[sid] = stats
                 print()
 
