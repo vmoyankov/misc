@@ -17,11 +17,11 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
+import subprocess  # noqa: S404
 import time
 
 
-def main() -> None:
+def main() -> None:  # noqa: C901,PLR0912,PLR0915  # Split it up... later
     """Parse command-line arguments, run `ss` repeatedly, process its output."""
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--filter", help="Filter sessions by address:port")
@@ -40,9 +40,9 @@ def main() -> None:
         params = None
 
     sessions: dict[str, dict[str, int]] = {}
-    while True:
+    while True:  # noqa: PLR1702  # Split it up... later
         session = None
-        res = subprocess.run(["ss", "-tni"], stdout=subprocess.PIPE, encoding="utf-8").stdout
+        res = subprocess.run(["ss", "-tni"], stdout=subprocess.PIPE, encoding="utf-8").stdout  # noqa: S603,S607
         ignore_data = True
         for line in res.splitlines():
             fields = line.split()
