@@ -1,0 +1,2 @@
+pytest >= 7, < 9
+utf8-locale >= 1, < 2

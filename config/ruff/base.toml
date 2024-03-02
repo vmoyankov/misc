@@ -1,0 +1,46 @@
+# Copyright 2024 Peter Pentchev <roam@ringlet.net>
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+target-version = "py38"
+line-length = 100
+
+[lint]
+select = []
+ignore = [
+  # No blank lines before the class docstring, TYVM
+  "D203",
+
+  # The multi-line docstring summary starts on the same line
+  "D213",
+
+  # The /x regex modifier is common enough in many languages
+  "FURB167",
+]
+
+[lint.isort]
+force-single-line = true
+# known-first-party = ["none_really_not_formatted_as_a_module"]
+lines-after-imports = 2
+single-line-exclusions = ["collections.abc", "typing"]
+
+[lint.per-file-ignores]
+# This is a command-line tool; console output is part of its job
+"tcp_stat.py" = ["T201"]
+
+# This is a test suite
+"tests/unit/**.py" = ["S101", "T201"]
+
+# Until we switch to SPDX copyright and license tags, keep those files small
+"tests/unit/__init__.py" = ["CPY001"]
+"tests/unit/tcp_stat/__init__.py" = ["CPY001"]
