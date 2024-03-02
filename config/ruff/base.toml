@@ -29,7 +29,6 @@ ignore = [
 
   # FIXME: fix or override these ASAP
   "PLW1510",
-  "SIM105",
   "SIM108",
 ]
 

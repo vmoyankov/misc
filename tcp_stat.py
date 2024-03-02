@@ -17,11 +17,12 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import subprocess  # noqa: S404
 import time
 
 
-def main() -> None:  # noqa: C901,PLR0912,PLR0915  # Split it up... later
+def main() -> None:  # noqa: C901,PLR0912  # Split it up... later
     """Parse command-line arguments, run `ss` repeatedly, process its output."""
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--filter", help="Filter sessions by address:port")
@@ -64,10 +65,8 @@ def main() -> None:  # noqa: C901,PLR0912,PLR0915  # Split it up... later
                 for word in fields[1:]:
                     if ":" in word:
                         f_key, f_value = word.split(":", 1)
-                        try:
+                        with contextlib.suppress(ValueError):
                             stats[f_key] = int(f_value)
-                        except ValueError:
-                            pass
                 print(sid, end=delimiter)
                 for s_key, s_value in stats.items():
                     if s_key not in session:
