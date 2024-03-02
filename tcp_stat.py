@@ -26,7 +26,7 @@ def main() -> None:  # noqa: C901,PLR0912  # Split it up... later
     """Parse command-line arguments, run `ss` repeatedly, process its output."""
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--filter", help="Filter sessions by address:port")
-    parser.add_argument("-F", "--params", help="Filter by param, coma separated list")
+    parser.add_argument("-F", "--params", help="Filter by param, comma-separated list")
     parser.add_argument("-v", "--vertical", action="store_true")
     args = parser.parse_args()
 
