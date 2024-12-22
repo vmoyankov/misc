@@ -163,7 +163,7 @@ colors = [
     (255, 128, 0),  # yellow
     (0, 255, 128),  # cyan
     (255, 0, 64),   # magenta
-    (127, 127, 127), # white
+    (255, 255, 255), # white
 ]
 
 strip = NeoPixel(Pin(LED_PIN, Pin.OUT), LED_COUNT)
