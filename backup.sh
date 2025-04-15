@@ -8,13 +8,14 @@
 # with borgmatic
 
 
-BORG_REPO=backup@vm-borg-server.sof-vm.storpool.local:dell
+BORG_REPO=backup@vm-borg-server.sof-vm.storpool.local:tpe14
 last_backup=/var/run/borg-backup/last-backup
 backup_interval=7170 # min interval in seconds between backups
+SSID="GVM"  # skip backups if connected to this network
 
 
 # skip backup if over mobile
-if iwconfig 2>/dev/null | fgrep -q 'ESSID:"A88"' ; then 
+if iwconfig 2>/dev/null | fgrep -q "ESSID:\"${SSID}\"" ; then 
 	logger -t backup -p local0.info "Mobile network is in use, Skip backup"
 	exit 0
 fi
