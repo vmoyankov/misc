@@ -90,7 +90,7 @@ class ArchiveFs(pyfuse3.Operations):
                 self.paths[path] = entry
 
     def _get_dir(self, path: str) -> FileEntry:
-        log.debug("_get_dir %d", path)
+        log.debug("_get_dir %s", path)
         try:
             entry = self.paths[path]
             assert entry.is_dir
@@ -195,6 +195,7 @@ class ArchiveFs(pyfuse3.Operations):
             raise pyfuse3.FUSEError(errno.EACCES)
         hash_ = entry.hash_
         filename = os.path.join(self.base_path, hash_[0:2], hash_[2:4], hash_)
+        log.debug("Openinig %s", filename)
         try:
             fh = os.open(filename, flags)
         except OSError as exc:
@@ -203,7 +204,7 @@ class ArchiveFs(pyfuse3.Operations):
         return pyfuse3.FileInfo(fh=fh)
 
     async def read(self, fh, off, size):
-        log.debug("open fh=%d off=%d size=%d", fh, off, size)
+        log.debug("read fh=%d off=%d size=%d", fh, off, size)
         assert fh in self.openfd
         os.lseek(fh, off, os.SEEK_SET)
         return os.read(fh, size)
